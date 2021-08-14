@@ -60,9 +60,9 @@ def front():
                         45, 1), justification='center')
                 ],
                 [
-                    sg.Image(r"img_angulo.png"),
-                    sg.Image(r"img_altura.png"),
-                    sg.Image(r"img_extensao.png")
+                    sg.Image(r"Assets/img_angulo.png"),
+                    sg.Image(r"Assets/img_altura.png"),
+                    sg.Image(r"Assets/img_extensao.png")
                 ],
                 [
                     sg.Frame(layout=[[sg.Text(size=(17, 1), justification='center', font=(
@@ -109,7 +109,7 @@ def front():
                 ],
                 [sg.Text(' ')],
                 [sg.Text(' ')]
-            ], title='Comandos'), sg.Text('                     '), sg.Frame(layout=[[sg.Image(r"img_guindaste04.png")]], title='Video-Simulação')
+            ], title='Comandos'), sg.Text('                     '), sg.Frame(layout=[[sg.Image(r"Assets/img_guindaste04.png")]], title='Video-Simulação')
         ]
     ]
 
