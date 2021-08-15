@@ -10,16 +10,15 @@ def front():
     ]
 
     window = sg.Window('GRUPO C - GUINDASTE VIRTUAL', layout, size=(400, 150), element_justification='center')
-    button, event = window.read()
-
+    
     while True:
-        if button == 'SAIR':
-            break
+        button, event = window.read()
 
-        elif event == sg.WINDOW_CLOSED or event == 'Quit':
-            break
-
-        elif button == 'INICIAR':
+        if button == 'INICIAR':
             window.close()
             p1.front()
-    window.exit()
+            break
+        
+        else:
+            window.close()
+            break

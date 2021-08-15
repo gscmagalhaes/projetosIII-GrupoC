@@ -1,9 +1,14 @@
 import PySimpleGUI as sg
 import initialPage as p0
-import comands as c0
+import commands as c0
+from commands import Commands
 import connectionServer as cs
+from connectionServer import ConnectionInterface
 
 import constants as const
+
+class Object(object):
+    pass
 
 def LEDIndicator(key=None, radius=30):
     return sg.Graph(canvas_size=(radius, radius),
@@ -18,36 +23,38 @@ def SetLED(window, key, color):
     graph.draw_circle((0, 0), 12, fill_color=color, line_color=color)
 
 
-def UpdateVariables(window):
-    print('Update Variables Data')
+def UpdateVariables(window, connectionLibrary: ConnectionInterface):
+    connectionStatus = connectionLibrary.getConnectionStatus()
+    craneStatus = connectionLibrary.getCraneStatus()
 
-    window['-ANGULO-'].update(c0.dados('angulo'))
-    window['-ALTURA-'].update(c0.dados('altura'))
-    window['-EXTENSAO-'].update(c0.dados('extensao'))
+    if connectionStatus and craneStatus:
+        window['-ANGULO-'].update("xxx")
+        window['-ALTURA-'].update(round(connectionLibrary.getCurrentHeightHook(), 2))
+        window['-EXTENSAO-'].update("xxx")
+    else:
+        window['-ANGULO-'].update("0")
+        window['-ALTURA-'].update("0")
+        window['-EXTENSAO-'].update("0")
 
-    # LED de indicação para teste de conexão
-    statusLED = cs.connectionStatus()
-    if statusLED == 'off':
-        SetLED(window, '_STATUS_', 'red')
-    elif statusLED == 'on':
+    if connectionStatus :
         SetLED(window, '_STATUS_', 'green')
-    if statusLED == 'wait':
-        SetLED(window, '_STATUS_', 'yellow')
+    else:
+        SetLED(window, '_STATUS_', 'red')
 
-    # LED de indicação para teste de conexão
-    getLED = cs.getObjectStatus()
-    if getLED == 'free':
-        SetLED(window, '_GET_', 'green')
-    elif getLED == 'hold':
-        SetLED(window, '_GET_', 'blue')
-    if getLED == 'tring':
-        SetLED(window, '_GET_', 'yellow')
+    if craneStatus:
+        SetLED(window, '_STATUS_CRANE_', 'green')
+    else:
+        SetLED(window, '_STATUS_CRANE_', 'red')
+    
+    SetLED(window, '_STATUS_MAGNET_', 'yellow')
 
 
 def front():
     layout = [
         [
-            sg.Text('SERVER CONNECTION STATUS:  '), LEDIndicator('_STATUS_')
+            sg.Text('SERVER CONNECTION STATUS:  '), LEDIndicator('_STATUS_'),
+            sg.Text(' '), sg.Button('CONNECT'), sg.Text('            '),
+            sg.Text('CRANE STATUS:  '), LEDIndicator('_STATUS_CRANE_'), sg.Button('INIT/STOP')
         ],
         [
             sg.Frame(layout=[
@@ -78,27 +85,20 @@ def front():
             sg.Frame(layout=[
                 [sg.Text(' ')],
                 [
-                    sg.Button('Atualizar')
-                ],
-                [sg.Text(' ')],
-                [
-                    sg.Text(' '), sg.Button('SUBIR', size=[15, 1]), sg.Text(
-                        '  '), sg.Button('DESCER', size=[15, 1])
+                    sg.Text(' '), sg.Button('SUBIR', size=[15, 1]), sg.Text('  '), sg.Button('DESCER', size=[15, 1])
                 ],
                 [
-                    sg.Text(' '), sg.Button('ESQUERDA', size=[15, 1]), sg.Text(
-                        '  '), sg.Button('DIREITA', size=[15, 1])
+                    sg.Text(' '), sg.Button('ESQUERDA', size=[15, 1]), sg.Text('  '), sg.Button('DIREITA', size=[15, 1])
                 ],
                 [
-                    sg.Text(' '), sg.Button('AVANÇAR', size=[15, 1]), sg.Text(
-                        '  '), sg.Button('RECUAR', size=[15, 1])
+                    sg.Text(' '), sg.Button('AVANÇAR', size=[15, 1]), sg.Text('  '), sg.Button('RECUAR', size=[15, 1])
                 ],
                 [sg.Text(' ')],
                 [
                     sg.Frame(layout=[
                         [
                             sg.Button('COLETAR', size=[15, 1]), sg.Frame(
-                                layout=[[LEDIndicator('_GET_')]], title=''), sg.Button('SOLTAR', size=[15, 1])
+                                layout=[[LEDIndicator('_STATUS_MAGNET_')]], title=''), sg.Button('SOLTAR', size=[15, 1])
                         ]
                     ], title='')
                 ],
@@ -114,25 +114,33 @@ def front():
     ]
 
     window = sg.Window('GRUPO C - GUINDASTE VIRTUAL', layout, size=(1050, 650))
+    SetLED(window, '_STATUS_', 'red')
+    
+    connectionLibrary = ConnectionInterface()
+    commandsLibrary = Commands()
 
-    while True:
+    while True:       
         button, event = window.read(timeout=const.FREQUENCY_UPDATE_DATA) 
-
-        UpdateVariables(window)
+        
+        UpdateVariables(window, connectionLibrary)
 
         if button == 'SAIR':
+            statusCrane = connectionLibrary.getCraneStatus()
+            if statusCrane:
+                connectionLibrary.commandCraneOnOff()
             break
 
         elif event == sg.WINDOW_CLOSED or event == 'Quit':
+            statusCrane = connectionLibrary.getCraneStatus()
+            if statusCrane:
+                connectionLibrary.commandCraneOnOff()
             break
 
         elif button == 'SUBIR':
-            window.close()  # EXCLUIR LINHA APÓS IMPLEMENTAÇÃO DA FUNÇÃO: 'SUBIR'
-            c0.comandos('SUBIR', 'p1')
+            commandsLibrary.SUBIR(connectionLibrary)
 
         elif button == 'DESCER':
-            window.close()  # EXCLUIR LINHA APÓS IMPLEMENTAÇÃO DA FUNÇÃO: 'DESCER'
-            c0.comandos('DESCER', 'p1')
+            commandsLibrary.DESCER(connectionLibrary)
 
         elif button == 'ESQUERDA':
             window.close()  # EXCLUIR LINHA APÓS IMPLEMENTAÇÃO DA FUNÇÃO: 'ESQUERDA'
@@ -157,10 +165,21 @@ def front():
         elif button == 'SOLTAR':
             window.close()  # EXCLUIR LINHA APÓS IMPLEMENTAÇÃO DA FUNÇÃO: 'RECUAR'
             c0.comandos('SOLTAR', 'p1')
-
+            
+        elif button == 'CONNECT':
+            SetLED(window, '_STATUS_', 'red') 
+            statusConnection = connectionLibrary.getConnectionStatus()
+            if not statusConnection:
+                _, status = connectionLibrary.init_connection('127.0.0.1' , 19997)
+                if status:
+                    SetLED(window, '_STATUS_', 'green')  
+                    
+        elif button == 'INIT/STOP':
+            connectionLibrary.commandCraneOnOff()
+                
         elif button == 'VOLTAR':
             window.close()
             p0.front()
             break
 
-    window.exit()
+    window.close()       
