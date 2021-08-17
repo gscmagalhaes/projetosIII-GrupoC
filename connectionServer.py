@@ -1,6 +1,7 @@
-# implementar conexão com o servidor, envio e recebimento de dados
-
 import math
+import numpy as np
+
+import constants as const
 
 try:
     import sim
@@ -19,7 +20,7 @@ class ConnectionInterface(object):
         self.currentHeightHook = 0
 
     #Startup Crane
-    def init_connection(self, ip = '127.0.0.1' , port = 19997):
+    def init_connection(self, ip = const.IP_SERVER , port = 19997):
         print('Program started - Init Connection')
         
         sim.simxFinish(-1)
@@ -65,14 +66,32 @@ class ConnectionInterface(object):
             sim.simxSetJointTargetPosition(self.clientID,self.crane,next_position,sim.simx_opmode_continuous)
         return self.craneStatus
     
+    def actionBoom(self, step):
+        if self.craneStatus and self.connectionStatus:
+            self.getCurrentAngleClaw()
+            next_position = self.currentAngleClaw + step
+            sim.simxSetJointTargetPosition(self.clientID,self.boom,degree2radian(next_position),sim.simx_opmode_continuous)
+        return self.craneStatus
+    
     #Commands
     def commandUp(self, step=1):
         return self.actionCrane(step)
     
     def commandDown(self, step=1):
-        print("step commandDown")
         return self.actionCrane(step*-1)
     
+    def commandLeft(self, step=1):
+        return self.actionBoom(step)
+    
+    def commandRight(self, step=1):
+        return self.actionBoom(step*-1)
+    
+    def commandMagnetOnOff(self):
+        if self.craneStatus and self.connectionStatus:
+            sim.simxCallScriptFunction(self.clientID,'Base',sim.sim_scripttype_childscript,'AtuadorIma',[],[],[],bytearray(),sim.simx_opmode_blocking)
+            self.magnetStatus = not self.magnetStatus
+        return self.magnetStatus
+
     #Status
     def getStatusDist(self):
         if self.craneStatus and self.connectionStatus:
@@ -81,40 +100,57 @@ class ConnectionInterface(object):
             return status
         return -1
     
-    #Gets
+    def getMagnetStatus(self):
+        return self.magnetStatus
+    
+    def getStatusDist(self):
+        if self.craneStatus and self.connectionStatus:
+            # Get proximity sensor status
+            status = sim.simxReadProximitySensor(self.clientID,self.proximity_sensor,sim.simx_opmode_buffer)[1]
+            return status
+        return -1
+    
     def getConnectionStatus(self):
         return self.connectionStatus
     
     def getCraneStatus(self):
         return self.craneStatus
     
+    #Gets   
     def getCurrentHeightHook(self):
         self.currentHeightHook = sim.simxGetObjectPosition(self.clientID, self.magnet, -1, sim.simx_opmode_blocking)[-1][-1]
         return self.currentHeightHook
+    
+    def getCurrentAngleClaw(self):
+        self.currentAngleClaw = radian2degree(sim.simxGetObjectOrientation(self.clientID,self.boomStructure,-1,sim.simx_opmode_blocking)[-1][-1])
+        return self.currentAngleClaw
+    
+    def getCamImage(self, save = False, number=1):
+        image = None
+        if self.craneStatus and self.connectionStatus:
+            if number == 1:
+                err_code,resolution,image = sim.simxGetVisionSensorImage(self.clientID,self.cam,0,sim.simx_opmode_buffer)
+            elif number == 2:
+                err_code,resolution,image = sim.simxGetVisionSensorImage(self.clientID,self.cam2,0,sim.simx_opmode_buffer)
+            if save:
+                if err_code == sim.simx_return_ok:
+                    img = np.array(image, dtype = np.uint8)
+                    img.resize([resolution[0],resolution[1],3])
+                    img = np.array(img[::-1], dtype=np.uint8)
+                    return img
+                else:
+                    return None
+        return None
 
-################################################
+# Functions Utils
 
-def connectionStatus():
-    # necessário implementar check de conexão
-    setOn = 1  # simulação de status 'aguardando conexão'
+def radian2degree(angle):
+    return 180*angle/math.pi
 
-    if setOn == 0:  # sistema desconectado
-        return 'off'
-    elif setOn == 1:  # sistema conectado
-        return 'on'
-    else:  # sistema aguardadndo conexão
-        return 'wait'
+def degree2radian(angle):
+    return math.pi*angle/180
 
-# função de check de status do guincho (retorno soble o acoplamento dos containers)
-
-
-def getObjectStatus():
-    # necessário implementar check de captação de objetos
-    holdOn = 2  # simulação de status 'gancho ocupado'
-
-    if holdOn == 0:  # gancho livre
-        return 'free'
-    elif holdOn == 1:  # gancho ocupado
-        return 'hold'
-    else:  # ganho tentando coletar objeto
-        return 'tring'
+def getAngle360(angle):
+    if angle < 0:
+        angle += 360
+    return angle

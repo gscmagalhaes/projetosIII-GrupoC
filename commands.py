@@ -1,128 +1,106 @@
-import PySimpleGUI as sg
-import checkAction as check
 import connectionServer as cs
 from connectionServer import ConnectionInterface
 import time
 import numpy as np
+import io
+from PIL import Image
+import constants as const
 
 class Commands(object):
-    def SUBIR(self, control: ConnectionInterface):
+    def SUBIR(self, window, step, control: ConnectionInterface):
         try:
             old_height = control.getCurrentHeightHook()
-            step = 3 #np.clip(float(cod),0.0,6.6747)
             status = control.commandUp(step)
         except:
             status = False 
         if status:
-            desired_height = np.clip(old_height + step, 0.0, 6.6747)
+            desired_height = np.clip(old_height + step, float(const.MIN_STEP), float(const.MAX_STEP))
             cnt = 0
             height = control.getCurrentHeightHook()
             while(abs(height - desired_height) > 0.05 and cnt < 200):
                 height = control.getCurrentHeightHook()
                 cnt+=1
-                # im1 = control.getCamImage(save=True,number=1)
-                # im2 = control.getCamImage(save=True,number=2)
-                # if im1 is not None:
-                #     self.pixmap = QtGui.QPixmap(im1)
-                #     self.pixmap = self.pixmap.scaled(220,220)
-                #     self.view.setPixmap(self.pixmap)
-                # if im2 is not None:
-                #     self.pixmap2 = QtGui.QPixmap(im2)
-                #     self.pixmap2 = self.pixmap2.scaled(220,220)
-                #     self.view2.setPixmap(self.pixmap2)
-                dist = control.getStatusDist()
+                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
         else:
             print('Não pode ser alterado por não estar ligado ou Falta valor de passo no campo acima')
         time.sleep(0.5)
-        dist = control.getStatusDist()
     
-    def DESCER(self, control: ConnectionInterface):
+    def DESCER(self, window, step, control: ConnectionInterface):
         try:
             old_height = control.getCurrentHeightHook()
-            step = 3
             status = control.commandDown(step)
         except:
             status = False
             
         if status:
-            desired_height = np.clip(old_height - step, 0.0, 6.6747)
+            desired_height = np.clip(old_height - step, float(const.MIN_STEP), float(const.MAX_STEP))
             cnt = 0
             height = control.getCurrentHeightHook()
             while(abs(height - desired_height) > 0.05 and cnt < 200):
-                #app.processEvents()
                 height = control.getCurrentHeightHook()
                 cnt+=1
-                # im1 = control.getCamImage(save=True,number=1)
-                # im2 = control.getCamImage(save=True,number=2)
-                # if im1 is not None:
-                #     self.pixmap = QtGui.QPixmap(im1)
-                #     self.pixmap = self.pixmap.scaled(220,220)
-                #     self.view.setPixmap(self.pixmap)
-                # if im2 is not None:
-                #     self.pixmap2 = QtGui.QPixmap(im2)
-                #     self.pixmap2 = self.pixmap2.scaled(220,220)
-                #     self.view2.setPixmap(self.pixmap2)
-                dist = control.getStatusDist()
+                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
         else:
             print('Não pode ser alterado por não estar ligado ou Falta valor de passo no campo acima')
-            time.sleep(0.5)
-            dist = control.getStatusDist()
+            
+        time.sleep(0.5)
 
-# envio de comandos para o Guindaste
-def comandos(sentido, page):
-    if sentido == "SUBIR":
-        # CONECTAR AO SERVIDOR
-        # ENVIAR UM COMANDO PARA O COPPELIASIM ERGUER O GUINDASTE/GUINCHO!
-        check.buttonAction("Você clicou em 'SUBIR'!", page)
+    def ESQUERDA(self, window, step, control: ConnectionInterface):
+        try:
+            old_angle = control.getCurrentAngleClaw()
+            status = control.commandLeft(step)
+        except:
+            status = False
+        if status:
+            desired_angle = cs.getAngle360(old_angle + step)
+            cnt = 0
+            angle = cs.getAngle360(control.getCurrentAngleClaw())
+            while(abs(angle - desired_angle) > 0.1 and cnt < 500):
+                angle = cs.getAngle360(control.getCurrentAngleClaw())
+                control.getStatusDist()
+                cnt+=1
+                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
+        else:
+            print('Não pode ser alterado por não estar ligado ou Falta valor de passo no campo acima')
+        
+    def DIREITA(self, window, step, control: ConnectionInterface):
+        try:
+            old_angle = control.getCurrentAngleClaw()
+            step = float(3)
+            status = control.commandRight(step)
+        except:
+            status = False
+        if status:
+            desired_angle = cs.getAngle360(old_angle - step)
+            cnt = 0
+            angle = cs.getAngle360(control.getCurrentAngleClaw())
+            while(abs(angle - desired_angle) > 0.1 and cnt < 500):
+                angle = cs.getAngle360(control.getCurrentAngleClaw())
+                cnt+=1
+                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
+        else:
+            print('Não pode ser alterado por não estar ligado ou Falta valor de passo no campo acima') 
+            
+    def MAGNET(self, window, control: ConnectionInterface):
+        if control.craneStatus and control.connectionStatus:
+            status = control.getMagnetStatus()
+            if status:
+                control.commandMagnetOnOff()
+                for _ in np.arange(0.0,control.getCurrentHeightHook(),0.25):
+                    SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
+            else:
+                control.commandMagnetOnOff()
+        else:
+            print('Sem conexão ou guindaste desligado.')
+                       
+def SetCamImage(window, camFrequency, connectionLibrary: ConnectionInterface):
+    img = connectionLibrary.getCamImage(save=True, number=1)
 
-    if sentido == "DESCER":
-        # CONECTAR AO SERVIDOR
-        # ENVIAR UM COMANDO PARA O COPPELIASIM ABAIXAR O GUINDASTE/GUINCHO!
-        check.buttonAction("Você clicou em 'DESCER'!", page)
-
-    if sentido == "ESQUERDA":
-        # CONECTAR AO SERVIDOR
-        # ENVIAR UM COMANDO PARA O COPPELIASIM GIRAR O GUINDASTE PARA A ESQUERDA!
-        check.buttonAction("Você clicou em 'ESQUERDA'!", page)
-
-    if sentido == "DIREITA":
-        # CONECTAR AO SERVIDOR
-        # ENVIAR UM COMANDO PARA O COPPELIASIM GIRAR O GUINDASTE PARA A DIREITA!
-        check.buttonAction("Você clicou em 'DIREITA'!", page)
-
-    if sentido == "AVANÇAR":
-        # CONECTAR AO SERVIDOR
-        # ENVIAR UM COMANDO PARA O COPPELIASIM AVANÇAR O GUINCHO!
-        check.buttonAction("Você clicou em 'AVANÇAR'!", page)
-
-    if sentido == "RECUAR":
-        # CONECTAR AO SERVIDOR
-        # ENVIAR UM COMANDO PARA O COPPELIASIM RECUAR O GUINCHO!
-        check.buttonAction("Você clicou em 'RECUAR'!", page)
-
-    if sentido == "COLETAR":
-        # CONECTAR AO SERVIDOR
-        # ENVIAR UM COMANDO PARA O COPPELIASIM RECUAR O GUINCHO!
-        check.buttonAction("Você clicou em 'COLETAR'!", page)
-
-    if sentido == "SOLTAR":
-        # CONECTAR AO SERVIDOR
-        # ENVIAR UM COMANDO PARA O COPPELIASIM RECUAR O GUINCHO!
-        check.buttonAction("Você clicou em 'SOLTAR'!", page)
-
-# recebimento de dados dos Sensores
-def dados(dado):
-    if dado == "angulo":
-        # CONECTAR AO SERVIDOR
-        # retornar o valor do Angulo do guindaste
-        return (77)
-
-    if dado == "altura":
-        # CONECTAR AO SERVIDOR
-        # retornar o valor do Angulo do guindaste
-        return (88)
-
-    if dado == "extensao":
-        # CONECTAR AO SERVIDOR
-        # retornar o valor do Angulo do guindaste
-        return (99)
+    if np.any(img):
+        image = Image.fromarray(img)
+        bio = io.BytesIO()
+        image.save(bio, format="PNG")
+        camImage = bio.getvalue()
+        if camFrequency > 0:
+            window.read(camFrequency)
+        window['cam1'].update(data=camImage)
