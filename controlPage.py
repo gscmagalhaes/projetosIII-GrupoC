@@ -12,7 +12,6 @@ import constants as const
 class Object(object):
     pass
 
-
 def LEDIndicator(key=None, radius=30):
     return sg.Graph(canvas_size=(radius, radius),
                     graph_bottom_left=(-radius, -radius),
@@ -30,7 +29,7 @@ def SetStep(window, stepToSet: str, step: float):
     window[stepToSet].update(round(newStep, 2))
     return newStep
 
-def UpdateVariables(window, connectionLibrary: ConnectionInterface):
+def UpdateVariables(window, cam_select, connectionLibrary: ConnectionInterface):
     connectionStatus = connectionLibrary.getConnectionStatus()
     craneStatus = connectionLibrary.getCraneStatus()
     magnetStatus = connectionLibrary.getMagnetStatus()
@@ -59,9 +58,11 @@ def UpdateVariables(window, connectionLibrary: ConnectionInterface):
     else:
         SetLED(window, '_STATUS_MAGNET_', 'yellow')
 
-    c0.SetCamImage(window, 0, connectionLibrary)
+    c0.SetCamImage(window, 0, cam_select, connectionLibrary)
 
 def front():
+    cam_select = 1
+    
     layout = [
         [
             sg.Text('SERVER CONNECTION STATUS:  '), LEDIndicator('_STATUS_'),
@@ -96,6 +97,7 @@ def front():
         ],
         [
             sg.Frame(layout=[
+                [sg.Text(' '), sg.Button('CAM ' + str(cam_select), size=[6, 1], key='CAM_SELECT')],
                 [sg.Text(' ')],
                 [
                     sg.Text(' '), sg.Button('SUBIR', size=[15, 1]), sg.Text('  '), 
@@ -143,7 +145,7 @@ def front():
     while True:
         button, event = window.read(timeout=const.FREQUENCY_UPDATE_DATA)
         count += 1
-        UpdateVariables(window, connectionLibrary)
+        UpdateVariables(window, cam_select, connectionLibrary)
 
         if button == 'SAIR':
             statusCrane = connectionLibrary.getCraneStatus()
@@ -156,14 +158,22 @@ def front():
             if statusCrane:
                 connectionLibrary.commandCraneOnOff()
             break
+        
+        elif button == 'CAM_SELECT':
+            if cam_select == 1:
+                cam_select = 2
+            else:
+                cam_select = 1
+                
+            window['CAM_SELECT'].update('CAM ' + str(cam_select))
 
         elif button == 'SUBIR':
-            commandsLibrary.SUBIR(window, stepAltura, connectionLibrary)
-            UpdateVariables(window, connectionLibrary)
+            commandsLibrary.SUBIR(window, cam_select, stepAltura, connectionLibrary)
+            UpdateVariables(window, cam_select, connectionLibrary)
 
         elif button == 'DESCER':
-            commandsLibrary.DESCER(window, stepAltura, connectionLibrary)
-            UpdateVariables(window, connectionLibrary)
+            commandsLibrary.DESCER(window, cam_select, stepAltura, connectionLibrary)
+            UpdateVariables(window, cam_select, connectionLibrary)
             
         elif button == 's-altura':
             stepAltura = SetStep(window, 'stepAlturaText', stepAltura - 0.5)
@@ -172,12 +182,12 @@ def front():
             stepAltura = SetStep(window, 'stepAlturaText', stepAltura + 0.5)
 
         elif button == 'ESQUERDA':
-            commandsLibrary.ESQUERDA(window, stepAngulo, connectionLibrary)
-            UpdateVariables(window, connectionLibrary)
+            commandsLibrary.ESQUERDA(window, cam_select, stepAngulo, connectionLibrary)
+            UpdateVariables(window, cam_select, connectionLibrary)
 
         elif button == 'DIREITA':
-            commandsLibrary.DIREITA(window, stepAngulo, connectionLibrary)
-            UpdateVariables(window, connectionLibrary)
+            commandsLibrary.DIREITA(window, cam_select, stepAngulo, connectionLibrary)
+            UpdateVariables(window, cam_select, connectionLibrary)
             
         elif button == 's-angulo':
             stepAngulo = SetStep(window, 'stepAnguloText', stepAngulo - 1)
@@ -203,13 +213,13 @@ def front():
             statusMagnet = connectionLibrary.getMagnetStatus()
             if not statusMagnet:
                 commandsLibrary.MAGNET(window, connectionLibrary)
-            UpdateVariables(window, connectionLibrary)
+            UpdateVariables(window, cam_select, connectionLibrary)
 
         elif button == 'SOLTAR':
             statusMagnet = connectionLibrary.getMagnetStatus()
             if statusMagnet:
-                commandsLibrary.MAGNET(window, connectionLibrary)
-            UpdateVariables(window, connectionLibrary)
+                commandsLibrary.MAGNET(window, cam_select, connectionLibrary)
+            UpdateVariables(window, cam_select, connectionLibrary)
 
         elif button == 'CONNECT':
             SetLED(window, '_STATUS_', 'red')

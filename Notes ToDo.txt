@@ -1,0 +1,3 @@
+Sensor de distância
+2 juntas (extensão e rotação do guindaste)
+Sensor de força para identificar se foi possivel pegar o sensor

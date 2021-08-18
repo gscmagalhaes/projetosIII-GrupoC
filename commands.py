@@ -7,7 +7,7 @@ from PIL import Image
 import constants as const
 
 class Commands(object):
-    def SUBIR(self, window, step, control: ConnectionInterface):
+    def SUBIR(self, window, cam_select, step, control: ConnectionInterface):
         try:
             old_height = control.getCurrentHeightHook()
             status = control.commandUp(step)
@@ -20,12 +20,12 @@ class Commands(object):
             while(abs(height - desired_height) > 0.05 and cnt < 200):
                 height = control.getCurrentHeightHook()
                 cnt+=1
-                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
+                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, cam_select, control)
         else:
             print('Não pode ser alterado por não estar ligado ou Falta valor de passo no campo acima')
         time.sleep(0.5)
     
-    def DESCER(self, window, step, control: ConnectionInterface):
+    def DESCER(self, window, cam_select, step, control: ConnectionInterface):
         try:
             old_height = control.getCurrentHeightHook()
             status = control.commandDown(step)
@@ -39,13 +39,13 @@ class Commands(object):
             while(abs(height - desired_height) > 0.05 and cnt < 200):
                 height = control.getCurrentHeightHook()
                 cnt+=1
-                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
+                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, cam_select, control)
         else:
             print('Não pode ser alterado por não estar ligado ou Falta valor de passo no campo acima')
             
         time.sleep(0.5)
 
-    def ESQUERDA(self, window, step, control: ConnectionInterface):
+    def ESQUERDA(self, window, cam_select, step, control: ConnectionInterface):
         try:
             old_angle = control.getCurrentAngleClaw()
             status = control.commandLeft(step)
@@ -59,11 +59,11 @@ class Commands(object):
                 angle = cs.getAngle360(control.getCurrentAngleClaw())
                 control.getStatusDist()
                 cnt+=1
-                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
+                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, cam_select, control)
         else:
             print('Não pode ser alterado por não estar ligado ou Falta valor de passo no campo acima')
         
-    def DIREITA(self, window, step, control: ConnectionInterface):
+    def DIREITA(self, window, cam_select, step, control: ConnectionInterface):
         try:
             old_angle = control.getCurrentAngleClaw()
             step = float(3)
@@ -77,24 +77,24 @@ class Commands(object):
             while(abs(angle - desired_angle) > 0.1 and cnt < 500):
                 angle = cs.getAngle360(control.getCurrentAngleClaw())
                 cnt+=1
-                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
+                SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, cam_select, control)
         else:
             print('Não pode ser alterado por não estar ligado ou Falta valor de passo no campo acima') 
             
-    def MAGNET(self, window, control: ConnectionInterface):
+    def MAGNET(self, window, cam_select, control: ConnectionInterface):
         if control.craneStatus and control.connectionStatus:
             status = control.getMagnetStatus()
             if status:
                 control.commandMagnetOnOff()
                 for _ in np.arange(0.0,control.getCurrentHeightHook(),0.25):
-                    SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, control)
+                    SetCamImage(window, const.FREQUENCY_UPDATE_DATA / 1000, cam_select, control)
             else:
                 control.commandMagnetOnOff()
         else:
             print('Sem conexão ou guindaste desligado.')
                        
-def SetCamImage(window, camFrequency, connectionLibrary: ConnectionInterface):
-    img = connectionLibrary.getCamImage(save=True, number=1)
+def SetCamImage(window, camFrequency, cam_select, connectionLibrary: ConnectionInterface):
+    img = connectionLibrary.getCamImage(save=True, number=cam_select)
 
     if np.any(img):
         image = Image.fromarray(img)
